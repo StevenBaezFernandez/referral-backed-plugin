@@ -1,0 +1,377 @@
+<?php
+/**
+ * Referral API Endpoints
+ * 
+ * Handles all referral-related REST API endpoints
+ * 
+ * @package Custom_API
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+class Custom_API_Referral_Endpoints {
+    
+    /**
+     * Database handler instance
+     * 
+     * @var Custom_API_Database
+     */
+    private $db;
+
+    /**
+     * Constructor
+     */
+    public function __construct() {
+        $this->db = new Custom_API_Database();
+    }
+
+    /**
+     * Register all referral routes
+     * 
+     * @return void
+     */
+    public function register_routes() {
+        // Get all referrals
+        register_rest_route(CUSTOM_API_NAMESPACE, '/test', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_all_referrals'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Get referrals by employee ID
+        register_rest_route(CUSTOM_API_NAMESPACE, '/referrals-by-employee-id/(?P<employee_id>[a-zA-Z0-9-]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_referrals_by_employee_id'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Get referrals by referral code
+        register_rest_route(CUSTOM_API_NAMESPACE, '/referrals-by-referral-id/(?P<referral_id>[a-zA-Z0-9-.]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_referrals_by_code'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Add new referral
+        register_rest_route(CUSTOM_API_NAMESPACE, '/add-referral', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'add_referral'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Update referral status
+        register_rest_route(CUSTOM_API_NAMESPACE, '/set-status/(?P<id>[a-zA-Z0-9-]+)/(?P<status_id>[a-zA-Z0-9-]+)', array(
+            'methods' => 'PUT',
+            'callback' => array($this, 'set_status'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Get referrer by ID
+        register_rest_route(CUSTOM_API_NAMESPACE, '/get-referrer-by-id/(?P<id>[a-zA-Z0-9-]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_referrer_by_id'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Get all referrers
+        register_rest_route(CUSTOM_API_NAMESPACE, '/get-referrers', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_referrers'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Get referrers with their referrals
+        register_rest_route(CUSTOM_API_NAMESPACE, '/get-referrers-with-referrals', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_referrers_with_referrals'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Get all statuses
+        register_rest_route(CUSTOM_API_NAMESPACE, '/get-statuses', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_statuses'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // External form submission (Unleash Forms)
+        register_rest_route(CUSTOM_API_NAMESPACE, '/unleash_forms', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'unleash_form'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+    }
+
+    /**
+     * Get all referrals
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_all_referrals($request) {
+        $result = $this->db->get_all_referrals();
+
+        if (!$result) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => 'An error occurred...'
+            ), 500);
+        }
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result
+        ), 200);
+    }
+
+    /**
+     * Get referrals by employee ID
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_referrals_by_employee_id($request) {
+        $employee_id = $request['employee_id'];
+        $result = $this->db->get_referrals_by_employee_id($employee_id);
+
+        if (!$result) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => 'An error occurred...'
+            ), 500);
+        }
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result,
+            'employee_id' => $employee_id
+        ), 200);
+    }
+
+    /**
+     * Get referrals by referral code
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_referrals_by_code($request) {
+        $referral_code = $request['referral_id'];
+        $result = $this->db->get_referrals_by_code($referral_code);
+
+        if (!$result) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => 'An error occurred...'
+            ), 500);
+        }
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result
+        ), 200);
+    }
+
+    /**
+     * Add new referral
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function add_referral($request) {
+        $body = json_decode($request->get_body(), true);
+
+        $data = array(
+            'referral_name' => $body['referral_name'],
+            'referral_last_name' => $body['referral_last_name'],
+            'referral_phone_number' => $body['referral_phone_number'],
+            'referral_email' => $body['referral_email'],
+            'experiencia' => $body['experiencia']['code'],
+            'english_level' => $body['english_level']['code'],
+            'job_preference' => $body['job_preference'],
+            'referrer_source' => $body['referrer_source']['code'],
+            'newtech_id' => $body['newtech_id'],
+            'referrer_email' => $body['referrer_email'],
+            'referrer_phone_number' => $body['referrer_phone_number'],
+            'referrer_name' => $body['referrer_name'],
+            'referrer_last_name' => $body['referrer_last_name']
+        );
+
+        $result = $this->db->create_referral($data);
+
+        if (!$result['success']) {
+            $status_code = $result['message'] === 'no_employee_matches' ? 404 : 500;
+            
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => $result['message'],
+                'error' => $result['error'] ?? null
+            ), $status_code);
+        }
+
+        // Send email notification
+        $email_sent = Custom_API_Email::send_referral_code_email(
+            $data['referrer_email'],
+            $result['referral_code']
+        );
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'referral_code' => $result['referral_code'],
+            'email_sent' => $email_sent
+        ), 201);
+    }
+
+    /**
+     * Update referral status
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function set_status($request) {
+        $body = json_decode($request->get_body(), true);
+        $referral_id = $request['id'];
+        $status_id = $request['status_id'];
+        $updated_by = $body['updated_by'] ?? 'system';
+        $updated_at = $body['updated_at'] ?? current_time('mysql');
+
+        $result = $this->db->update_referral_status(
+            $referral_id,
+            $status_id,
+            $updated_by,
+            $updated_at
+        );
+
+        if (!$result['success']) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => $result['message'],
+                'error' => $result['error'] ?? null
+            ), 500);
+        }
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result
+        ), 200);
+    }
+
+    /**
+     * Get referrer by ID
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_referrer_by_id($request) {
+        $referrer_id = $request['id'];
+        $result = $this->db->get_referrer_by_id($referrer_id);
+
+        if (!$result) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => 'Referrer not found'
+            ), 404);
+        }
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result
+        ), 200);
+    }
+
+    /**
+     * Get all referrers
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_referrers($request) {
+        $result = $this->db->get_all_referrers();
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result
+        ), 200);
+    }
+
+    /**
+     * Get referrers with their referrals
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_referrers_with_referrals($request) {
+        $result = $this->db->get_referrers_with_referrals();
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result
+        ), 200);
+    }
+
+    /**
+     * Get all statuses
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_statuses($request) {
+        $result = $this->db->get_all_statuses();
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result
+        ), 200);
+    }
+
+    /**
+     * Handle external form submission (Unleash Forms)
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function unleash_form($request) {
+        if (!isset($_POST) || empty($_POST)) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => 'No data provided'
+            ), 400);
+        }
+
+        $forms_data = $_POST['forms'];
+
+        $data = array(
+            'first_name' => $forms_data['luyp_first_name'],
+            'last_name' => $forms_data['luyp_last_name'],
+            'phone' => $forms_data['luyp_phone'],
+            'email' => $forms_data['luyp_email'],
+            'source' => $forms_data['luyp_source']
+        );
+
+        $result = $this->db->create_referral_from_form($data);
+
+        $status_code = $result['success'] ? 201 : 400;
+
+        return new WP_REST_Response($result, $status_code);
+    }
+}
