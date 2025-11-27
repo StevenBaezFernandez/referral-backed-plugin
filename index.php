@@ -20,6 +20,8 @@ require_once plugin_dir_path(__FILE__) . 'config/config.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-database.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-auth.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-email.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-migration-feedback.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-migration-optimization.php';
 
 // Load API endpoint classes
 require_once plugin_dir_path(__FILE__) . 'api/class-referral-endpoints.php';

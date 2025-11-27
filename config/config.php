@@ -39,7 +39,7 @@ if (!defined('CUSTOM_API_ENCRYPTION_KEY')) {
     // Try multiple sources in order of preference
     if (defined('WP_ENCRYPTION_KEY')) {
         // From wp-config.php constant
-        define('CUSTOM_API_ENCRYPTION_KEY', WP_ENCRYPTION_KEY);
+        //define('CUSTOM_API_ENCRYPTION_KEY', WP_ENCRYPTION_KEY);
     } elseif (getenv('ENCRYPTION_KEY')) {
         // From server environment variable
         define('CUSTOM_API_ENCRYPTION_KEY', getenv('ENCRYPTION_KEY'));
@@ -56,7 +56,7 @@ if (!defined('CUSTOM_API_API_KEY')) {
     // Try multiple sources in order of preference
     if (defined('WP_API_KEY')) {
         // From wp-config.php constant
-        define('CUSTOM_API_API_KEY', WP_API_KEY);
+        //define('CUSTOM_API_API_KEY', WP_API_KEY);
     } elseif (getenv('API_KEY')) {
         // From server environment variable
         define('CUSTOM_API_API_KEY', getenv('API_KEY'));

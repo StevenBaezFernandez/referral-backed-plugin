@@ -112,6 +112,46 @@ class Custom_API_Referral_Endpoints {
             'permission_callback' => array('Custom_API_Auth', 'validate_request'),
             'show_in_index' => false,
         ));
+
+        // Get full changelog with feedback
+        register_rest_route(CUSTOM_API_NAMESPACE, '/referral-changelog/(?P<id>[0-9]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_full_changelog'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Add feedback comment
+        register_rest_route(CUSTOM_API_NAMESPACE, '/add-feedback/(?P<id>[0-9]+)', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'add_feedback'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Get referrals by job preference
+        register_rest_route(CUSTOM_API_NAMESPACE, '/referrals-by-job/(?P<job_preference>[a-zA-Z0-9\s\-\/]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_by_job_preference'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Get referrals for re-evaluation
+        register_rest_route(CUSTOM_API_NAMESPACE, '/referrals-reevaluation', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_reevaluation_referrals'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
+        // Update job preference
+        register_rest_route(CUSTOM_API_NAMESPACE, '/update-job-preference/(?P<id>[0-9]+)', array(
+            'methods' => 'PUT',
+            'callback' => array($this, 'update_job_preference'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
     }
 
     /**
@@ -172,17 +212,27 @@ class Custom_API_Referral_Endpoints {
         $referral_code = $request['referral_id'];
         $result = $this->db->get_referrals_by_code($referral_code);
 
-        if (!$result) {
+        // Check for database error (false) vs empty results (empty array)
+        if ($result === false) {
             return new WP_REST_Response(array(
                 'status' => false,
-                'message' => 'An error occurred...'
+                'message' => 'Database error occurred'
             ), 500);
+        }
+
+        // Check if no referrals found
+        if (empty($result)) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => 'No referrals found with code: ' . $referral_code
+            ), 404);
         }
 
         return new WP_REST_Response(array(
             'status' => true,
             'message' => 'Success',
-            'data' => $result
+            'data' => $result,
+            'count' => count($result)
         ), 200);
     }
 
@@ -249,12 +299,14 @@ class Custom_API_Referral_Endpoints {
         $status_id = $request['status_id'];
         $updated_by = $body['updated_by'] ?? 'system';
         $updated_at = $body['updated_at'] ?? current_time('mysql');
+        $feedback_comment = $body['feedback_comment'] ?? '';
 
         $result = $this->db->update_referral_status(
             $referral_id,
             $status_id,
             $updated_by,
-            $updated_at
+            $updated_at,
+            $feedback_comment
         );
 
         if (!$result['success']) {
@@ -371,6 +423,113 @@ class Custom_API_Referral_Endpoints {
         $result = $this->db->create_referral_from_form($data);
 
         $status_code = $result['success'] ? 201 : 400;
+
+        return new WP_REST_Response($result, $status_code);
+    }
+
+    /**
+     * Get full changelog with feedback for a referral
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_full_changelog($request) {
+        $referral_id = $request['id'];
+        $limit = $request->get_param('limit') ?? 10;
+
+        $result = $this->db->get_full_changelog($referral_id, $limit);
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result,
+            'count' => count($result)
+        ), 200);
+    }
+
+    /**
+     * Add feedback comment to a referral
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function add_feedback($request) {
+        $referral_id = $request['id'];
+        $body = json_decode($request->get_body(), true);
+        $feedback_comment = $body['feedback_comment'] ?? '';
+
+        if (empty($feedback_comment)) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => 'Feedback comment is required'
+            ), 400);
+        }
+
+        $result = $this->db->add_feedback_comment($referral_id, $feedback_comment);
+
+        $status_code = $result['success'] ? 200 : 500;
+
+        return new WP_REST_Response($result, $status_code);
+    }
+
+    /**
+     * Get referrals by job preference
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_by_job_preference($request) {
+        $job_preference = urldecode($request['job_preference']);
+        
+        $result = $this->db->get_referrals_by_job_preference($job_preference);
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result,
+            'job_preference' => $job_preference,
+            'count' => count($result)
+        ), 200);
+    }
+
+    /**
+     * Get referrals for re-evaluation
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_reevaluation_referrals($request) {
+        $result = $this->db->get_referrals_for_reevaluation();
+
+        return new WP_REST_Response(array(
+            'status' => true,
+            'message' => 'Success',
+            'data' => $result,
+            'count' => count($result)
+        ), 200);
+    }
+
+    /**
+     * Update job preference for a referral
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function update_job_preference($request) {
+        $referral_id = $request['id'];
+        $body = json_decode($request->get_body(), true);
+        $job_preference = $body['job_preference'] ?? '';
+
+        if (empty($job_preference)) {
+            return new WP_REST_Response(array(
+                'status' => false,
+                'message' => 'Job preference is required'
+            ), 400);
+        }
+
+        $result = $this->db->update_job_preference($referral_id, $job_preference);
+
+        $status_code = $result['success'] ? 200 : 500;
 
         return new WP_REST_Response($result, $status_code);
     }
