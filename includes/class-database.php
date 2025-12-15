@@ -91,7 +91,7 @@ class Custom_API_Database {
     public function get_referral_changelog($referral_id) {
         $sql = $this->wpdb->prepare(
             "SELECT c.id, c.record_id, s_old.name AS old_status_name, s_new.name AS new_status_name, 
-            c.old_status, c.new_status, c.performer, c.date
+            c.old_status, c.new_status, c.performer, c.date, c.feedback_comment
             FROM " . CUSTOM_API_TABLE_CHANGELOG . " c
             JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " s_old ON c.old_status = s_old.id
             JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " s_new ON c.new_status = s_new.id
@@ -162,21 +162,50 @@ class Custom_API_Database {
                 o.id                    AS referral_id,
                 o.NAME                  AS referral_name,
                 o.last_name             AS referral_last_name,
-                referred_date           AS referral_referred_date,
-                st.referrer_label       AS status_name,
-                st.category             AS status_category
-            FROM   " . CUSTOM_API_TABLE_REFERRALS . " o
-            INNER JOIN " . CUSTOM_API_TABLE_REFERRER . " ref
+                o.phone_number          AS referral_phone_number,
+                o.email                 AS referral_email,
+                o.experiencia           AS referral_experience,
+                o.english_level         AS referral_english_level,
+                o.job_preference        AS job_preference,
+                o.referrer_source       AS referral_referrer_source,
+                o.referred_date         AS referral_referred_date,
+                o.internal_id           AS internal_id,
+                o.referrer_name         AS referrer_name,
+                o.referrer_last_name    AS referrer_last_name,
+                o.referrer_email        AS referrer_email,
+                o.referrer_phone_number AS referrer_phone_number,
+                o.feedback_comment      AS feedback_comment,
+                o.latest_status_review_by,
+                o.latest_status_review_date,
+                ref.id                  AS referrer_id,
+                ref.email               AS referrer_email_2,
+                ref.newtech_id          AS referrer_newtech_id,
+                st.id                   AS status_id,
+                st.NAME                 AS status_name,
+                st.referrer_label       AS status_label,
+                st.category             AS status_category,
+                cd.alphanumeric_code    AS referral_code
+            FROM   " . CUSTOM_API_TABLE_REFERRAL_CODE . " cd
+            INNER JOIN " . CUSTOM_API_TABLE_REFERRALS . " o
+                    ON o.referral_code = cd.id
+            LEFT JOIN " . CUSTOM_API_TABLE_REFERRER . " ref
                     ON ref.id = o.referrer_id
-            INNER JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " st
+            LEFT JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " st
                     ON st.id = o.status_id
-            INNER JOIN " . CUSTOM_API_TABLE_REFERRAL_CODE . " cd
-                    ON cd.id = o.referral_code
             WHERE cd.alphanumeric_code = %s",
             $referral_code
         );
 
-        return $this->wpdb->get_results($sql);
+        $result = $this->wpdb->get_results($sql);
+
+        // Add change log for each referral
+        if ($result) {
+            foreach ($result as $key => $value) {
+                $result[$key]->change_log = $this->get_referral_changelog($value->referral_id);
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -345,9 +374,10 @@ class Custom_API_Database {
      * @param int $status_id
      * @param string $updated_by
      * @param string $updated_at
+     * @param string $feedback_comment Optional feedback comment for status change
      * @return array
      */
-    public function update_referral_status($referral_id, $status_id, $updated_by, $updated_at) {
+    public function update_referral_status($referral_id, $status_id, $updated_by, $updated_at, $feedback_comment = '') {
         // Get current status
         $current_status = $this->wpdb->get_results(
             $this->wpdb->prepare(
@@ -365,10 +395,18 @@ class Custom_API_Database {
 
         $old_status = $current_status[0]->status_id;
 
+        // Prepare update data
+        $update_data = ['status_id' => $status_id];
+        
+        // Add feedback comment if provided
+        if (!empty($feedback_comment)) {
+            $update_data['feedback_comment'] = sanitize_textarea_field($feedback_comment);
+        }
+
         // Update status
         $result = $this->wpdb->update(
             CUSTOM_API_TABLE_REFERRALS,
-            ['status_id' => $status_id],
+            $update_data,
             ['id' => $referral_id]
         );
 
@@ -391,16 +429,17 @@ class Custom_API_Database {
             ['id' => $referral_id]
         );
 
-        // Add to changelog
+        // Add to changelog with feedback
         $history = $this->wpdb->query(
             $this->wpdb->prepare(
                 "INSERT INTO " . CUSTOM_API_TABLE_CHANGELOG . " 
-                (record_id, old_status, new_status, performer) 
-                VALUES (%d, %d, %d, %s)",
+                (record_id, old_status, new_status, performer, feedback_comment) 
+                VALUES (%d, %d, %d, %s, %s)",
                 $referral_id,
                 $old_status,
                 $status_id,
-                $updated_by
+                $updated_by,
+                sanitize_textarea_field($feedback_comment)
             )
         );
 
@@ -408,6 +447,7 @@ class Custom_API_Database {
             'success' => true,
             'old_status' => $old_status,
             'new_status' => $status_id,
+            'feedback_comment' => $feedback_comment,
             'changelog_created' => (bool) $history
         ];
     }
@@ -634,6 +674,147 @@ class Custom_API_Database {
             'success' => false,
             'message' => 'Error al registrar',
             'error' => $this->wpdb->last_error
+        ];
+    }
+
+    /**
+     * Get full changelog with feedback for a referral
+     * 
+     * @param int $referral_id
+     * @param int $limit Number of records to retrieve (default: 10)
+     * @return array
+     */
+    public function get_full_changelog($referral_id, $limit = 10) {
+        $sql = $this->wpdb->prepare(
+            "SELECT c.id, c.record_id, 
+            s_old.name AS old_status_name, 
+            s_new.name AS new_status_name,
+            s_new.category AS new_status_category,
+            c.old_status, c.new_status, c.performer, c.date, c.feedback_comment
+            FROM " . CUSTOM_API_TABLE_CHANGELOG . " c
+            JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " s_old ON c.old_status = s_old.id
+            JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " s_new ON c.new_status = s_new.id
+            WHERE c.record_id = %d
+            ORDER BY c.date DESC
+            LIMIT %d",
+            $referral_id,
+            $limit
+        );
+
+        return $this->wpdb->get_results($sql);
+    }
+
+    /**
+     * Add feedback comment to existing referral
+     * 
+     * @param int $referral_id
+     * @param string $feedback_comment
+     * @return array
+     */
+    public function add_feedback_comment($referral_id, $feedback_comment) {
+        $result = $this->wpdb->update(
+            CUSTOM_API_TABLE_REFERRALS,
+            ['feedback_comment' => sanitize_textarea_field($feedback_comment)],
+            ['id' => $referral_id]
+        );
+
+        if ($result === false) {
+            return [
+                'success' => false,
+                'message' => 'Failed to add feedback comment',
+                'error' => $this->wpdb->last_error
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Feedback comment added successfully'
+        ];
+    }
+
+    /**
+     * Get referrals by job preference
+     * 
+     * @param string $job_preference
+     * @return array
+     */
+    public function get_referrals_by_job_preference($job_preference) {
+        $sql = $this->wpdb->prepare(
+            "SELECT 
+                o.id            AS referral_id,
+                o.NAME          AS referral_name,
+                o.last_name     AS referral_last_name,
+                o.email         AS referral_email,
+                o.job_preference AS job_preference,
+                o.experiencia   AS referral_experience,
+                o.english_level AS referral_english_level,
+                st.NAME         AS status_name,
+                st.category     AS status_category,
+                referred_date   AS referral_referred_date,
+                o.feedback_comment AS feedback_comment
+            FROM   " . CUSTOM_API_TABLE_REFERRALS . " o
+            LEFT JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " st
+                    ON st.id = o.status_id
+            WHERE o.job_preference = %s
+            ORDER BY o.id DESC",
+            $job_preference
+        );
+
+        return $this->wpdb->get_results($sql);
+    }
+
+    /**
+     * Get referrals requiring re-evaluation
+     * (e.g., rejected referrals that can be reconsidered)
+     * 
+     * @return array
+     */
+    public function get_referrals_for_reevaluation() {
+        $sql = "SELECT 
+            o.id            AS referral_id,
+            o.NAME          AS referral_name,
+            o.last_name     AS referral_last_name,
+            o.email         AS referral_email,
+            o.job_preference AS job_preference,
+            st.NAME         AS status_name,
+            st.category     AS status_category,
+            o.feedback_comment AS feedback_comment,
+            o.latest_status_review_date AS last_review_date
+        FROM   " . CUSTOM_API_TABLE_REFERRALS . " o
+        INNER JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " st
+                ON st.id = o.status_id
+        WHERE st.category = 'rejected'
+        AND o.feedback_comment IS NOT NULL
+        ORDER BY o.latest_status_review_date DESC";
+
+        return $this->wpdb->get_results($sql);
+    }
+
+    /**
+     * Update job preference for a referral
+     * 
+     * @param int $referral_id
+     * @param string $job_preference
+     * @return array
+     */
+    public function update_job_preference($referral_id, $job_preference) {
+        $result = $this->wpdb->update(
+            CUSTOM_API_TABLE_REFERRALS,
+            ['job_preference' => sanitize_text_field($job_preference)],
+            ['id' => $referral_id]
+        );
+
+        if ($result === false) {
+            return [
+                'success' => false,
+                'message' => 'Failed to update job preference',
+                'error' => $this->wpdb->last_error
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Job preference updated successfully'
         ];
     }
 }
