@@ -275,7 +275,7 @@ class Custom_API_Database {
                 addslashes($data['referrer_phone_number']),
                 addslashes($data['referrer_name']),
                 addslashes($data['referrer_last_name']),
-                0,
+                strtolower($data['job_preference']) === 'software' ? 30 : 0,
                 $r_code_data['code_id']
             )
         );
@@ -377,7 +377,7 @@ class Custom_API_Database {
      * @param string $feedback_comment Optional feedback comment for status change
      * @return array
      */
-    public function update_referral_status($referral_id, $status_id, $updated_by, $updated_at, $feedback_comment = '') {
+    public function update_referral_status($referral_id, $status_id, $updated_by, $updated_at, $feedback_comment = '', $reevaluation_scheduled = false) {
         // Get current status
         $current_status = $this->wpdb->get_results(
             $this->wpdb->prepare(
@@ -397,8 +397,7 @@ class Custom_API_Database {
 
         // Prepare update data
         $update_data = ['status_id' => $status_id];
-        
-        // Add feedback comment if provided
+
         if (!empty($feedback_comment)) {
             $update_data['feedback_comment'] = sanitize_textarea_field($feedback_comment);
         }
@@ -414,7 +413,7 @@ class Custom_API_Database {
             return [
                 'success' => false,
                 'message' => 'Failed to update status',
-                'error' => $this->wpdb->last_error
+                'error'   => $this->wpdb->last_error
             ];
         }
 
@@ -423,33 +422,76 @@ class Custom_API_Database {
             CUSTOM_API_TABLE_REFERRALS,
             [
                 'latest_status_review_date' => $updated_at,
-                'latest_status_review_by' => $updated_by,
-                'status_month' => 0
+                'latest_status_review_by'   => $updated_by,
+                'status_month'              => 0
             ],
             ['id' => $referral_id]
         );
 
-        // Add to changelog with feedback
+        // Handle reevaluation scheduling
+        $reevaluation_date = null;
+
+        if ($reevaluation_scheduled) {
+            $reevaluation_date = date('Y-m-d', strtotime('+3 months'));
+            $this->wpdb->update(
+                CUSTOM_API_TABLE_REFERRALS,
+                [
+                    'reevaluation_scheduled' => 1,
+                    'reevaluation_date'      => $reevaluation_date
+                ],
+                ['id' => $referral_id]
+            );
+        }
+
+        // Add to changelog
         $history = $this->wpdb->query(
             $this->wpdb->prepare(
                 "INSERT INTO " . CUSTOM_API_TABLE_CHANGELOG . " 
-                (record_id, old_status, new_status, performer, feedback_comment) 
-                VALUES (%d, %d, %d, %s, %s)",
+                (record_id, old_status, new_status, performer, feedback_comment, reevaluation_scheduled, reevaluation_date) 
+                VALUES (%d, %d, %d, %s, %s, %d, %s)",
                 $referral_id,
                 $old_status,
                 $status_id,
                 $updated_by,
-                sanitize_textarea_field($feedback_comment)
+                sanitize_textarea_field($feedback_comment),
+                $reevaluation_scheduled ? 1 : 0,
+                $reevaluation_date
             )
         );
 
         return [
-            'success' => true,
-            'old_status' => $old_status,
-            'new_status' => $status_id,
-            'feedback_comment' => $feedback_comment,
-            'changelog_created' => (bool) $history
+            'success'                => true,
+            'old_status'             => $old_status,
+            'new_status'             => $status_id,
+            'feedback_comment'       => $feedback_comment,
+            'reevaluation_scheduled' => $reevaluation_scheduled,
+            'reevaluation_date'      => $reevaluation_date,
+            'changelog_created'      => (bool) $history
         ];
+    }
+
+    public function get_software_statuses() {
+        // Returns only the software-specific status IDs
+        // Adjust the WHERE clause to match however you differentiate them in DB
+        // Option A: by name prefix
+        $sql = "SELECT * FROM " . CUSTOM_API_TABLE_REFERRALS_STATUS . " 
+                WHERE name LIKE 'SW -%' ORDER BY id ASC";
+        return $this->wpdb->get_results($sql);
+    }
+
+    public function get_reevaluation_candidates() {
+        $today = date('Y-m-d');
+        $sql = $this->wpdb->prepare(
+            "SELECT o.id AS referral_id, o.name AS referral_name, o.last_name, o.email,
+                    o.reevaluation_date, o.job_preference,
+                    st.name AS status_name
+            FROM " . CUSTOM_API_TABLE_REFERRALS . " o
+            INNER JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " st ON st.id = o.status_id
+            WHERE o.reevaluation_scheduled = 1
+            AND o.reevaluation_date <= %s",
+            $today
+        );
+        return $this->wpdb->get_results($sql);
     }
 
     /**

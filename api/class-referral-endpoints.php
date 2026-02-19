@@ -295,32 +295,34 @@ class Custom_API_Referral_Endpoints {
      */
     public function set_status($request) {
         $body = json_decode($request->get_body(), true);
-        $referral_id = $request['id'];
-        $status_id = $request['status_id'];
-        $updated_by = $body['updated_by'] ?? 'system';
-        $updated_at = $body['updated_at'] ?? current_time('mysql');
-        $feedback_comment = $body['feedback_comment'] ?? '';
+        $referral_id          = $request['id'];
+        $status_id            = $request['status_id'];
+        $updated_by           = $body['updated_by']           ?? 'system';
+        $updated_at           = $body['updated_at']           ?? current_time('mysql');
+        $feedback_comment     = $body['feedback_comment']     ?? '';
+        $reevaluation_scheduled = (bool)($body['reevaluation_scheduled'] ?? false);
 
         $result = $this->db->update_referral_status(
             $referral_id,
             $status_id,
             $updated_by,
             $updated_at,
-            $feedback_comment
+            $feedback_comment,
+            $reevaluation_scheduled 
         );
 
         if (!$result['success']) {
             return new WP_REST_Response(array(
-                'status' => false,
+                'status'  => false,
                 'message' => $result['message'],
-                'error' => $result['error'] ?? null
+                'error'   => $result['error'] ?? null
             ), 500);
         }
 
         return new WP_REST_Response(array(
-            'status' => true,
+            'status'  => true,
             'message' => 'Success',
-            'data' => $result
+            'data'    => $result
         ), 200);
     }
 
