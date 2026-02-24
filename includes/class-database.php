@@ -60,6 +60,7 @@ class Custom_API_Database {
             st.category     AS status_category,
             o.month         AS current_month,
             o.status_month  AS status_month,
+            o.previous_status_id AS previous_status_id,
             latest_status_review_by,
             latest_status_review_date,
             cd.alphanumeric_code AS referral_code
@@ -381,7 +382,7 @@ class Custom_API_Database {
         // Get current status
         $current_status = $this->wpdb->get_results(
             $this->wpdb->prepare(
-                "SELECT status_id FROM " . CUSTOM_API_TABLE_REFERRALS . " WHERE id = %d",
+                "SELECT status_id, previous_status_id, email, name, last_name FROM " . CUSTOM_API_TABLE_REFERRALS . " WHERE id = %d",
                 $referral_id
             )
         );
@@ -393,10 +394,38 @@ class Custom_API_Database {
             ];
         }
 
-        $old_status = $current_status[0]->status_id;
+        $old_status       = $current_status[0]->status_id;
+        $referral_email   = $current_status[0]->email;
+        $referral_name    = $current_status[0]->name . ' ' . $current_status[0]->last_name;
+
+        // Get status names for the email
+        $old_status_name = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT name FROM " . CUSTOM_API_TABLE_REFERRALS_STATUS . " WHERE id = %d",
+                $old_status
+            )
+        );
+        $new_status_name = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT name FROM " . CUSTOM_API_TABLE_REFERRALS_STATUS . " WHERE id = %d",
+                $status_id
+            )
+        );
+
+
+        // On Hold status IDs
+        $on_hold_ids = [38];
 
         // Prepare update data
         $update_data = ['status_id' => $status_id];
+
+        if (in_array($status_id, $on_hold_ids)) {
+            // Going ON HOLD — save where we came from
+            $update_data['previous_status_id'] = $old_status;
+        } elseif (in_array($old_status, $on_hold_ids)) {
+            // Coming OFF HOLD — clear the saved status
+            $update_data['previous_status_id'] = null;
+        }
 
         if (!empty($feedback_comment)) {
             $update_data['feedback_comment'] = sanitize_textarea_field($feedback_comment);
@@ -457,6 +486,14 @@ class Custom_API_Database {
                 $reevaluation_scheduled ? 1 : 0,
                 $reevaluation_date
             )
+        );
+
+        // Send status update email to referral
+        Custom_API_Email::send_status_update_email(
+            $referral_email,
+            $referral_name,
+            $old_status_name ?? $old_status,
+            $new_status_name ?? $status_id
         );
 
         return [
