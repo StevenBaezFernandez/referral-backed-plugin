@@ -493,7 +493,8 @@ class Custom_API_Database {
             $referral_email,
             $referral_name,
             $old_status_name ?? $old_status,
-            $new_status_name ?? $status_id
+            $new_status_name ?? $status_id,
+            $feedback_comment
         );
 
         return [

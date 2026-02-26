@@ -125,9 +125,9 @@ class Custom_API_Email {
      * @param string $new_status
      * @return bool
      */
-    public static function send_status_update_email($recipient_email, $referral_name, $old_status, $new_status) {
+    public static function send_status_update_email($recipient_email, $referral_name, $old_status, $new_status, $feedback_comment = '') {
         $subject = 'Referral Status Update - ' . $referral_name;
-        $body = self::get_status_update_template($referral_name, $old_status, $new_status);
+        $body = self::get_status_update_template($referral_name, $old_status, $new_status, $feedback_comment);
         $headers = array('Content-Type: text/html; charset=UTF-8');
 
         add_action('phpmailer_init', function($phpmailer) {
@@ -145,10 +145,20 @@ class Custom_API_Email {
      * @param string $new_status
      * @return string
      */
-    private static function get_status_update_template($referral_name, $old_status, $new_status) {
-        $current_year = date('Y');
-        
-        return '<!DOCTYPE html>
+    private static function get_status_update_template($referral_name, $old_status, $new_status, $feedback_comment = '') {
+    $current_year = date('Y');
+    
+    // Only show feedback block if a comment was provided
+    $feedback_block = '';
+    if (!empty($feedback_comment)) {
+        $feedback_block = '
+        <div class="feedback-box">
+            <p><strong>Feedback:</strong></p>
+            <p>' . esc_html($feedback_comment) . '</p>
+        </div>';
+    }
+
+    return '<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -159,7 +169,6 @@ class Custom_API_Email {
             margin: 0;
             padding: 0;
         }
-
         .content {
             margin: 30px;
             background-color: white;
@@ -167,21 +176,25 @@ class Custom_API_Email {
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
-
         p {
             color: #333;
             font-size: 18px;
             line-height: 1.5;
             margin-bottom: 20px;
         }
-
         .status-box {
             background-color: #f0f0f0;
             padding: 15px;
             border-radius: 5px;
             margin: 20px 0;
         }
-
+        .feedback-box {
+            background-color: #fff3f3;
+            border-left: 4px solid #e53e3e;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
         .footer {
             margin-top: 30px;
             text-align: center;
@@ -190,7 +203,6 @@ class Custom_API_Email {
         }
     </style>
 </head>
-
 <body>
     <div class="content">
         <img src="' . CUSTOM_API_LOGO_URL . '" alt="Referral App Logo" width="300">
@@ -199,16 +211,15 @@ class Custom_API_Email {
             <p><strong>Previous Status:</strong> ' . esc_html($old_status) . '</p>
             <p><strong>New Status:</strong> ' . esc_html($new_status) . '</p>
         </div>
+        ' . $feedback_block . '
         <p>For more information, contact our Recruiting Department:</p>
         <p><strong>Email:</strong> ' . CUSTOM_API_EMAIL_FROM . '</p>
         <p><strong>Phone:</strong> ' . CUSTOM_API_EMAIL_PHONE . '</p>
     </div>
-
     <div class="footer">
          <p>Copyright © ' . $current_year . ' Newtech</p>
     </div>
 </body>
-
 </html>';
-    }
+}
 }
