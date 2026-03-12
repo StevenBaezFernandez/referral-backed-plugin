@@ -532,6 +532,69 @@ class Custom_API_Database {
         return $this->wpdb->get_results($sql);
     }
 
+
+    /**
+     * Save signing date when moving to Pending to Sign
+     */
+    public function set_signing_date($referral_id, $signing_date) {
+        $result = $this->wpdb->update(
+            CUSTOM_API_TABLE_REFERRALS,
+            ['signing_date' => $signing_date],
+            ['id' => $referral_id]
+        );
+
+        return $result !== false
+            ? ['success' => true]
+            : ['success' => false, 'error' => $this->wpdb->last_error];
+    }
+
+    /**
+     * Create hiring log entry — immutable, no update method provided
+     */
+    public function create_hiring_log($data) {
+        $result = $this->wpdb->insert(
+            'wp_hiring_logs',
+            [
+                'referral_id'   => $data['referral_id'],
+                'referral_name' => $data['referral_name'],
+                'employee_code' => $data['employee_code'] ?? null,
+                'signing_date'  => $data['signing_date'],
+                'sent_at'       => current_time('mysql'),
+                'approved_by'   => $data['approved_by'],
+                'client'        => $data['client'] ?? null,
+                'position_name' => $data['position_name'] ?? null,
+                'work_modality' => $data['work_modality'] ?? null,
+                'work_location' => $data['work_location'] ?? null,
+            ]
+        );
+
+        return $result
+            ? ['success' => true, 'log_id' => $this->wpdb->insert_id]
+            : ['success' => false, 'error' => $this->wpdb->last_error];
+    }
+
+    /**
+     * Get all hiring logs — read only
+     */
+    public function get_hiring_logs() {
+        return $this->wpdb->get_results(
+            "SELECT * FROM wp_hiring_logs ORDER BY created_at DESC"
+        );
+    }
+
+    /**
+     * Get signing date for a referral — used to validate before Hired
+     */
+    public function get_signing_date($referral_id) {
+        return $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT signing_date FROM " . CUSTOM_API_TABLE_REFERRALS . " WHERE id = %d",
+                $referral_id
+            )
+        );
+    }
+
+
     /**
      * Get all statuses
      * 

@@ -152,6 +152,81 @@ class Custom_API_Referral_Endpoints {
             'permission_callback' => array('Custom_API_Auth', 'validate_request'),
             'show_in_index' => false,
         ));
+
+        register_rest_route(CUSTOM_API_NAMESPACE, '/set-signing-date/(?P<id>\d+)', array(
+            'methods'             => 'PUT',
+            'callback'            => array($this, 'set_signing_date'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+        ));
+
+        register_rest_route(CUSTOM_API_NAMESPACE, '/create-hiring-log', array(
+            'methods'             => 'POST',
+            'callback'            => array($this, 'create_hiring_log'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+        ));
+
+        register_rest_route(CUSTOM_API_NAMESPACE, '/get-hiring-logs', array(
+            'methods'             => 'GET',
+            'callback'            => array($this, 'get_hiring_logs'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+        ));
+
+        
+    }
+
+    public function set_signing_date($request) {
+        $body        = json_decode($request->get_body(), true);
+        $referral_id = $request['id'];
+        $signing_date = $body['signing_date'] ?? null;
+
+        if (!$signing_date) {
+            return new WP_REST_Response(['status' => false, 'message' => 'signing_date is required'], 400);
+        }
+
+        $result = $this->db->set_signing_date($referral_id, $signing_date);
+
+        return new WP_REST_Response([
+            'status'  => $result['success'],
+            'message' => $result['success'] ? 'Signing date saved' : $result['error']
+        ], $result['success'] ? 200 : 500);
+    }
+
+    public function create_hiring_log($request) {
+        $body = json_decode($request->get_body(), true);
+
+        $required = ['referral_id', 'referral_name', 'signing_date', 'approved_by'];
+        foreach ($required as $field) {
+            if (empty($body[$field])) {
+                return new WP_REST_Response(['status' => false, 'message' => "$field is required"], 400);
+            }
+        }
+
+        // Validate signing_date was set before allowing Hired
+        $signing_date = $this->db->get_signing_date($body['referral_id']);
+        if (!$signing_date) {
+            return new WP_REST_Response([
+                'status'  => false,
+                'message' => 'Cannot mark as Hired without a signing date set first'
+            ], 422);
+        }
+
+        $result = $this->db->create_hiring_log($body);
+
+        if ($result['success']) {
+            // Send internal department emails
+            Custom_API_Email::send_hired_department_emails($body);
+        }
+
+        return new WP_REST_Response([
+            'status'  => $result['success'],
+            'message' => $result['success'] ? 'Hiring log created' : $result['error'],
+            'log_id'  => $result['log_id'] ?? null
+        ], $result['success'] ? 201 : 500);
+    }
+
+    public function get_hiring_logs($request) {
+        $logs = $this->db->get_hiring_logs();
+        return new WP_REST_Response(['status' => true, 'data' => $logs], 200);
     }
 
     /**

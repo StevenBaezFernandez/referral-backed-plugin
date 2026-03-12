@@ -222,4 +222,89 @@ class Custom_API_Email {
 </body>
 </html>';
 }
+
+
+/**
+ * Send hired notification to all internal departments
+ */
+public static function send_hired_department_emails($data) {
+    // Define distro emails per department
+    $departments = [
+        'IT'                      => 'it@newtechsa.com',
+        'Finanzas'                => 'finanzas@newtechsa.com',
+        'Recursos Humanos'        => 'rrhh@newtechsa.com',
+        'Legal'                   => 'legal@newtechsa.com',
+        'Seguridad'               => 'seguridad@newtechsa.com',
+        'Compensación y Beneficios' => 'compensacion@newtechsa.com',
+    ];
+
+    $headers = ['Content-Type: text/html; charset=UTF-8'];
+    $results = [];
+
+    foreach ($departments as $dept_name => $dept_email) {
+        $subject = 'Nuevo Empleado - Alta de Personal: ' . $data['referral_name'];
+        $body    = self::get_hired_department_template($dept_name, $data);
+
+        add_action('phpmailer_init', function($phpmailer) {
+            $phpmailer->isSMTP();
+        });
+
+        $results[$dept_name] = wp_mail($dept_email, $subject, $body, $headers);
+    }
+
+    return $results;
 }
+
+private static function get_hired_department_template($department, $data) {
+    $current_year = date('Y');
+    $signing_date = date('d/m/Y h:i A', strtotime($data['signing_date']));
+
+    return '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { background: linear-gradient(to bottom right, rgb(0,167,92), rgb(0,170,162)); margin:0; padding:0; }
+        .content { margin:30px; background:#fff; padding:25px; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,.2); font-family:Segoe UI,Arial,sans-serif; font-size:10pt; color:#333; }
+        h2 { color: rgb(0,170,162); margin-top:0; }
+        .info-table { width:100%; border-collapse:collapse; margin:20px 0; }
+        .info-table td { padding:10px 14px; border-bottom:1px solid #eee; font-size:10pt; }
+        .info-table td:first-child { font-weight:600; width:45%; color:#555; }
+        .dept-badge { display:inline-block; background:rgb(0,170,162); color:#fff; padding:4px 14px; border-radius:20px; font-size:9pt; margin-bottom:18px; }
+        .footer { margin-top:30px; text-align:center; color:#fff; font-size:13px; }
+        .signature p { margin:3px 0; font-size:9pt; }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <img src="' . CUSTOM_API_LOGO_URL . '" alt="Newtech" width="220" style="display:block;border:0;margin-bottom:16px;">
+        <span class="dept-badge">Para: ' . esc_html($department) . '</span>
+        <h2>Notificación de Alta de Personal</h2>
+        <p>Se informa que el siguiente candidato ha sido contratado y requiere gestión de alta por parte de su departamento.</p>
+        <table class="info-table">
+            <tr><td>Nombre Completo</td><td>' . esc_html($data['referral_name']) . '</td></tr>
+            <tr><td>Código de Empleado</td><td>' . esc_html($data['employee_code'] ?? 'Por asignar') . '</td></tr>
+            <tr><td>Fecha de Inicio</td><td>' . esc_html($signing_date) . '</td></tr>
+            <tr><td>Cliente</td><td>' . esc_html($data['client'] ?? 'N/A') . '</td></tr>
+            <tr><td>Posición</td><td>' . esc_html($data['position_name'] ?? 'N/A') . '</td></tr>
+            <tr><td>Modalidad de Trabajo</td><td>' . esc_html($data['work_modality'] ?? 'N/A') . '</td></tr>
+            <tr><td>Sede de Trabajo</td><td>' . esc_html($data['work_location'] ?? 'N/A') . '</td></tr>
+            <tr><td>Aprobado por</td><td>' . esc_html($data['approved_by']) . '</td></tr>
+        </table>
+        <div class="signature">
+            <p><strong>Recruiting Department | Newtech</strong></p>
+            <p>T: 1+ (829)-692-8482</p>
+            <p>E: <a href="mailto:' . CUSTOM_API_EMAIL_FROM . '" style="color:#0563C1;text-decoration:none;">' . CUSTOM_API_EMAIL_FROM . '</a></p>
+            <p>W: <a href="http://www.newtechsa.com/" style="color:#000;text-decoration:none;">www.newtechsa.com</a></p>
+            <p style="font-size:8.5pt;color:#767171;margin-top:10px;">The information contained in this message may be proprietary and confidential. If you are not the intended recipient, please notify us immediately.</p>
+        </div>
+    </div>
+    <div class="footer"><p>Copyright © ' . $current_year . ' Newtech</p></div>
+</body>
+</html>';
+}
+
+
+}
+
+
