@@ -28,6 +28,26 @@ class Custom_API_Database {
         $this->wpdb = $wpdb;
     }
 
+
+
+    /**
+     * Get referral by ID
+     *
+     * @param int $referral_id
+     * @return object|null
+     */
+    public function get_referral_by_id($referral_id) {
+        $result = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT id, name, last_name, email FROM " . CUSTOM_API_TABLE_REFERRALS . " WHERE id = %d",
+                $referral_id
+            )
+        );
+        return $result ?? null;
+    }
+
+
+
     /**
      * Get all referrals with complete information
      * 
