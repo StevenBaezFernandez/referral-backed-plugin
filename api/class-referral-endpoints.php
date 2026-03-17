@@ -175,9 +175,10 @@ class Custom_API_Referral_Endpoints {
     }
 
     public function set_signing_date($request) {
-        $body        = json_decode($request->get_body(), true);
-        $referral_id = $request['id'];
-        $signing_date = $body['signing_date'] ?? null;
+        $body          = json_decode($request->get_body(), true);
+        $referral_id   = $request['id'];
+        $signing_date  = $body['signing_date']  ?? null;
+        $work_location = $body['work_location'] ?? ''; // 👈 added
 
         if (!$signing_date) {
             return new WP_REST_Response(['status' => false, 'message' => 'signing_date is required'], 400);
@@ -185,10 +186,25 @@ class Custom_API_Referral_Endpoints {
 
         $result = $this->db->set_signing_date($referral_id, $signing_date);
 
+        if (!$result['success']) {
+            return new WP_REST_Response(['status' => false, 'message' => $result['error']], 500);
+        }
+
+        // Send signing date notification to candidate 👈
+        $referral = $this->db->get_referral_by_id($referral_id);
+        if ($referral) {
+            Custom_API_Email::send_signing_date_email(
+                $referral->email,
+                $referral->name . ' ' . $referral->last_name,
+                $signing_date,
+                $work_location
+            );
+        }
+
         return new WP_REST_Response([
-            'status'  => $result['success'],
-            'message' => $result['success'] ? 'Signing date saved' : $result['error']
-        ], $result['success'] ? 200 : 500);
+            'status'  => true,
+            'message' => 'Signing date saved'
+        ], 200);
     }
 
     public function create_hiring_log($request) {
@@ -212,16 +228,31 @@ class Custom_API_Referral_Endpoints {
 
         $result = $this->db->create_hiring_log($body);
 
-        if ($result['success']) {
-            // Send internal department emails
-            Custom_API_Email::send_hired_department_emails($body);
+        if (!$result['success']) {
+            return new WP_REST_Response(['status' => false, 'message' => $result['error']], 500);
+        }
+
+        // Send internal department emails 
+        Custom_API_Email::send_hired_department_emails($body);
+
+        // Send congratulations email to candidate 
+        $referral = $this->db->get_referral_by_id($body['referral_id']);
+        if ($referral) {
+            Custom_API_Email::send_hired_congratulations_email(
+                $referral->email,
+                $body['referral_name'],
+                $body['signing_date'],
+                $body['position_name']  ?? '',
+                $body['work_location']  ?? '',
+                $body['work_modality']  ?? ''
+            );
         }
 
         return new WP_REST_Response([
-            'status'  => $result['success'],
-            'message' => $result['success'] ? 'Hiring log created' : $result['error'],
+            'status'  => true,
+            'message' => 'Hiring log created',
             'log_id'  => $result['log_id'] ?? null
-        ], $result['success'] ? 201 : 500);
+        ], 201);
     }
 
     public function get_hiring_logs($request) {
