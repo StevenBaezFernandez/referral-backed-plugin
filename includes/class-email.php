@@ -93,17 +93,14 @@ class Custom_API_Email {
         <p>We greatly appreciate your contributions to help our family grow every day!</p>
         <p>Your <strong>referral code</strong> is:</p>
         <a href="' . CUSTOM_API_REFERRAL_URL . '?utm_source=email&raf_code=' . $referral_code . '" class="referral-code">' . $referral_code . '</a>
-        <p>For more information on your referral status, feel free to contact our Recruiting Department:</p>
-        <p class="contact"><strong>Email:</strong> ' . CUSTOM_API_EMAIL_FROM . '</p>
-        <p class="contact"><strong>Phone Number:</strong> ' . CUSTOM_API_EMAIL_PHONE . '</p>
         <p><strong>Kindly note:</strong> Referral Payout is only valid for active Newtech employees.</p>
-    </div>
-    <div class="signature">
-        <p><strong>Recruiting Department | Newtech</strong></p>
-        <p>T: 1+ (829)-692-8482</p>
-        <p>E: <a href="mailto:' . CUSTOM_API_EMAIL_FROM . '" style="color:#0563C1;text-decoration:none;">' . CUSTOM_API_EMAIL_FROM . '</a></p>
-        <p>W: <a href="http://www.newtechsa.com/" style="color:#000;text-decoration:none;">www.newtechsa.com</a></p>
-        <p style="font-size:8.5pt;color:#767171;margin-top:10px;">The information contained in this message may be proprietary and confidential. If you are not the intended recipient, please notify us immediately.</p>
+        <div class="signature">
+            <p><strong>Recruiting Department | Newtech</strong></p>
+            <p>T: 1+ (829)-692-8482</p>
+            <p>E: <a href="mailto:' . CUSTOM_API_EMAIL_FROM . '" style="color:#0563C1;text-decoration:none;">' . CUSTOM_API_EMAIL_FROM . '</a></p>
+            <p>W: <a href="http://www.newtechsa.com/" style="color:#000;text-decoration:none;">www.newtechsa.com</a></p>
+            <p style="font-size:8.5pt;color:#767171;margin-top:10px;">The information contained in this message may be proprietary and confidential. If you are not the intended recipient, please notify us immediately.</p>
+        </div>
     </div>
     <div class="footer">
          <p>Copyright © ' . $current_year . ' Newtech</p>
@@ -334,7 +331,10 @@ class Custom_API_Email {
     public static function send_hired_congratulations_email($recipient_email, $referral_name, $start_date, $position_name = '', $work_location = '', $work_modality = '') {
         $subject = 'Welcome to Newtech — You\'re Hired! 🎉';
         $body    = self::get_hired_congratulations_template($referral_name, $start_date, $position_name, $work_location, $work_modality);
-        $headers = array('Content-Type: text/html; charset=UTF-8');
+        $headers = array(
+            'Content-Type: text/html; charset=UTF-8',
+            'X-WP-Mail-SMTP-Track-Clicks: false',
+        );
 
         add_action('phpmailer_init', function($phpmailer) {
             $phpmailer->isSMTP();
@@ -353,7 +353,7 @@ class Custom_API_Email {
         $locations = [
             'Rómulo Betancourt' => [
                 'address' => 'Rómulo Betancourt 1460, Bella Vista, Santo Domingo, DR.',
-                'map_url' => 'https://maps.google.com/?q=Rómulo+Betancourt+1460+Bella+Vista+Santo+Domingo+Dominican+Republic',
+                'map_url' => '  ',
             ],
             'JC' => [
                 'address' => 'Juan Carlos location address here',
