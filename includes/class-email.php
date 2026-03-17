@@ -242,12 +242,12 @@ class Custom_API_Email {
 public static function send_hired_department_emails($data) {
     // Define distro emails per department
     $departments = [
-        'IT'                      => 'it@newtechsa.com',
-        'Finanzas'                => 'finanzas@newtechsa.com',
-        'Recursos Humanos'        => 'rrhh@newtechsa.com',
-        'Legal'                   => 'legal@newtechsa.com',
-        'Seguridad'               => 'seguridad@newtechsa.com',
-        'Compensación y Beneficios' => 'compensacion@newtechsa.com',
+        'IT'                      => 'steven.baez@newtechsa.com',
+        'Finanzas'                => 'steven.baez@newtechsa.com',
+        'Recursos Humanos'        => 'steven.baez@newtechsa.com',
+        'Legal'                   => 'steven.baez@newtechsa.com',
+        'Seguridad'               => 'steven.baez@newtechsa.com',
+        'Compensación y Beneficios' => 'steven.baez@newtechsa.com',
     ];
 
     $headers = ['Content-Type: text/html; charset=UTF-8'];
