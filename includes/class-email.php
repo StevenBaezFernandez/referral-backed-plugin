@@ -383,7 +383,7 @@ class Custom_API_Email {
         .content { margin:30px; background:#fff; padding:25px; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,.2); font-family:Segoe UI,Arial,sans-serif; font-size:10pt; color:#333; line-height:1.5; }
         p { margin:0 0 14px 0; font-size:10pt; color:#333; }
         .welcome-banner { background: linear-gradient(to right, rgb(0,167,92), rgb(0,170,162)); border-radius:8px; padding:24px; text-align:center; margin:16px 0 24px 0; }
-        .welcome-banner h1 { color:#fff; margin:0; font-size:22pt; letter-spacing:1px; }
+        .welcome-banner h1 { color:#555; margin:0; font-size:22pt; letter-spacing:1px; }
         .welcome-banner p { color:rgba(255,255,255,.9); margin:6px 0 0 0; font-size:11pt; }
         .info-table { width:100%; border-collapse:collapse; margin:20px 0; }
         .info-table td { padding:10px 14px; border-bottom:1px solid #eee; font-size:10pt; }
