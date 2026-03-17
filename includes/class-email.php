@@ -107,6 +107,13 @@ class Custom_API_Email {
         <p class="contact"><strong>Phone Number:</strong> ' . CUSTOM_API_EMAIL_PHONE . '</p>
         <p><strong>Kindly note:</strong> Referral Payout is only valid for active Newtech employees.</p>
     </div>
+    <div class="signature">
+        <p><strong>Recruiting Department | Newtech</strong></p>
+        <p>T: 1+ (829)-692-8482</p>
+        <p>E: <a href="mailto:' . CUSTOM_API_EMAIL_FROM . '" style="color:#0563C1;text-decoration:none;">' . CUSTOM_API_EMAIL_FROM . '</a></p>
+        <p>W: <a href="http://www.newtechsa.com/" style="color:#000;text-decoration:none;">www.newtechsa.com</a></p>
+        <p style="font-size:8.5pt;color:#767171;margin-top:10px;">The information contained in this message may be proprietary and confidential. If you are not the intended recipient, please notify us immediately.</p>
+    </div>
 
     <div class="footer">
          <p>Copyright © ' . $current_year . ' Newtech</p>
@@ -189,8 +196,8 @@ class Custom_API_Email {
             margin: 20px 0;
         }
         .feedback-box {
-            background-color: #fff3f3;
-            border-left: 4px solid #e53e3e;
+            background-color: #f3fbff;
+            border-left: 4px solid #3eade5;
             padding: 15px;
             border-radius: 5px;
             margin: 20px 0;
@@ -212,9 +219,13 @@ class Custom_API_Email {
             <p><strong>New Status:</strong> ' . esc_html($new_status) . '</p>
         </div>
         ' . $feedback_block . '
-        <p>For more information, contact our Recruiting Department:</p>
-        <p><strong>Email:</strong> ' . CUSTOM_API_EMAIL_FROM . '</p>
-        <p><strong>Phone:</strong> ' . CUSTOM_API_EMAIL_PHONE . '</p>
+    </div>
+    <div class="signature">
+        <p><strong>Recruiting Department | Newtech</strong></p>
+        <p>T: 1+ (829)-692-8482</p>
+        <p>E: <a href="mailto:' . CUSTOM_API_EMAIL_FROM . '" style="color:#0563C1;text-decoration:none;">' . CUSTOM_API_EMAIL_FROM . '</a></p>
+        <p>W: <a href="http://www.newtechsa.com/" style="color:#000;text-decoration:none;">www.newtechsa.com</a></p>
+        <p style="font-size:8.5pt;color:#767171;margin-top:10px;">The information contained in this message may be proprietary and confidential. If you are not the intended recipient, please notify us immediately.</p>
     </div>
     <div class="footer">
          <p>Copyright © ' . $current_year . ' Newtech</p>
