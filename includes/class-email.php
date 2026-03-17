@@ -85,7 +85,7 @@ class Custom_API_Email {
             text-decoration: none;
             margin-top: 10px;
         }
-
+        .signature p { margin:3px 0; font-size:9pt; }
         .footer {
             margin-top: 30px;
             text-align: center;
@@ -202,6 +202,7 @@ class Custom_API_Email {
             border-radius: 5px;
             margin: 20px 0;
         }
+        .signature p { margin:3px 0; font-size:9pt; }
         .footer {
             margin-top: 30px;
             text-align: center;
@@ -219,13 +220,13 @@ class Custom_API_Email {
             <p><strong>New Status:</strong> ' . esc_html($new_status) . '</p>
         </div>
         ' . $feedback_block . '
-    </div>
-    <div class="signature">
-        <p><strong>Recruiting Department | Newtech</strong></p>
-        <p>T: 1+ (829)-692-8482</p>
-        <p>E: <a href="mailto:' . CUSTOM_API_EMAIL_FROM . '" style="color:#0563C1;text-decoration:none;">' . CUSTOM_API_EMAIL_FROM . '</a></p>
-        <p>W: <a href="http://www.newtechsa.com/" style="color:#000;text-decoration:none;">www.newtechsa.com</a></p>
-        <p style="font-size:8.5pt;color:#767171;margin-top:10px;">The information contained in this message may be proprietary and confidential. If you are not the intended recipient, please notify us immediately.</p>
+        <div class="signature">
+            <p><strong>Recruiting Department | Newtech</strong></p>
+            <p>T: 1+ (829)-692-8482</p>
+            <p>E: <a href="mailto:' . CUSTOM_API_EMAIL_FROM . '" style="color:#0563C1;text-decoration:none;">' . CUSTOM_API_EMAIL_FROM . '</a></p>
+            <p>W: <a href="http://www.newtechsa.com/" style="color:#000;text-decoration:none;">www.newtechsa.com</a></p>
+            <p style="font-size:8.5pt;color:#767171;margin-top:10px;">The information contained in this message may be proprietary and confidential. If you are not the intended recipient, please notify us immediately.</p>
+        </div>
     </div>
     <div class="footer">
          <p>Copyright © ' . $current_year . ' Newtech</p>
