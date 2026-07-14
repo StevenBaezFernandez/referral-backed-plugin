@@ -434,7 +434,7 @@ class Custom_API_Database {
 
 
         // On Hold status IDs
-        $on_hold_ids = [38];
+        $on_hold_ids = [38, 41];
 
         // Prepare update data
         $update_data = ['status_id' => $status_id];
