@@ -575,16 +575,19 @@ class Custom_API_Database {
         $result = $this->wpdb->insert(
             'wp_hiring_logs',
             [
-                'referral_id'   => $data['referral_id'],
-                'referral_name' => $data['referral_name'],
-                'employee_code' => $data['employee_code'] ?? null,
-                'signing_date'  => $data['signing_date'],
-                'sent_at'       => current_time('mysql'),
-                'approved_by'   => $data['approved_by'],
-                'client'        => $data['client'] ?? null,
-                'position_name' => $data['position_name'] ?? null,
-                'work_modality' => $data['work_modality'] ?? null,
-                'work_location' => $data['work_location'] ?? null,
+                'referral_id'     => $data['referral_id'],
+                'referral_code'   => $data['referral_code'],
+                'referral_name'   => $data['referral_name'],
+                'employee_code'   => $data['employee_code'] ?? null,
+                'signing_date'    => $data['signing_date'],
+                'sent_at'         => current_time('mysql'),
+                'approved_by'     => $data['approved_by'],
+                'client'          => $data['client'] ?? null,
+                'team'            => $data['team'] ?? null,
+                'position_name'   => $data['position_name'] ?? null,
+                'work_modality'   => $data['work_modality'] ?? null,
+                'work_location'   => $data['work_location'] ?? null,
+                'supervisor_code' => $data['supervisor_code'] ?? null,
             ]
         );
 

@@ -210,7 +210,7 @@ class Custom_API_Referral_Endpoints {
     public function create_hiring_log($request) {
         $body = json_decode($request->get_body(), true);
 
-        $required = ['referral_id', 'referral_name', 'signing_date', 'approved_by'];
+        $required = ['referral_id', 'referral_code', 'referral_name', 'signing_date', 'approved_by'];
         foreach ($required as $field) {
             if (empty($body[$field])) {
                 return new WP_REST_Response(['status' => false, 'message' => "$field is required"], 400);
