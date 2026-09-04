@@ -104,6 +104,170 @@ class Custom_API_Database {
     }
 
     /**
+     * Get referrals with server-side pagination, sorting and filtering.
+     *
+     * @param array $args {
+     *     @type int    $page       1-based page number (default 1)
+     *     @type int    $perPage    Rows per page (default 20)
+     *     @type string $sortBy     Sortable column key (default 'referral_id')
+     *     @type string $sortDir    'asc' | 'desc' (default 'desc')
+     *     @type string $global     Global search term
+     *     @type string $status     Status name or comma-separated list (IN)
+     *     @type string $englishLevel  'intermediate'|'advanced' or numeric code
+     *     @type string $source     Source name or comma-separated list (IN)
+     *     @type string $dateFrom   YYYY-MM-DD inclusive lower bound
+     *     @type string $dateTo     YYYY-MM-DD inclusive upper bound
+     *     @type int    $statusMonth  -1 review, 0 completed
+     * }
+     * @return array { rows: array, total: int }
+     */
+    public function get_referrals_paginated($args = []) {
+        $sort_whitelist = array(
+            'referral_id'              => 'o.id',
+            'referral_name'            => 'o.name',
+            'referral_last_name'       => 'o.last_name',
+            'referral_referred_date'   => 'o.referred_date',
+            'referral_english_level'   => 'o.english_level',
+            'referral_referrer_source' => 'o.referrer_source',
+            'job_preference'           => 'o.job_preference',
+            'status_name'              => 'st.name',
+            'status_month'             => 'o.status_month',
+            'latest_status_review_date'=> 'o.latest_status_review_date',
+        );
+
+        $sort_field = $sort_whitelist[$args['sortBy'] ?? 'referral_id'] ?? 'o.id';
+        $sort_dir   = strtoupper($args['sortDir'] ?? 'desc');
+        if (!in_array($sort_dir, array('ASC', 'DESC'), true)) {
+            $sort_dir = 'DESC';
+        }
+
+        $page    = max(1, intval($args['page'] ?? 1));
+        $perPage = max(1, min(200, intval($args['perPage'] ?? 20)));
+        $offset  = ($page - 1) * $perPage;
+
+        $where   = array();
+        $prepare = array();
+
+        if (!empty($args['global'])) {
+            $g = '%' . $this->wpdb->esc_like($args['global']) . '%';
+            $where[] = '(o.name LIKE %s OR o.last_name LIKE %s OR o.phone_number LIKE %s OR o.email LIKE %s '
+                     . 'OR st.name LIKE %s OR o.english_level LIKE %s OR o.referrer_source LIKE %s '
+                     . 'OR o.job_preference LIKE %s OR o.referrer_name LIKE %s)';
+            $prepare = array_merge($prepare, array_fill(0, 9, $g));
+        }
+
+        if (!empty($args['status'])) {
+            $statuses = array_filter(array_map('trim', explode(',', $args['status'])));
+            if (!empty($statuses)) {
+                $placeholders = implode(',', array_fill(0, count($statuses), '%s'));
+                $where[]      = "st.name IN ($placeholders)";
+                $prepare      = array_merge($prepare, $statuses);
+            }
+        }
+
+        if (!empty($args['englishLevel'])) {
+            $level_map = array('intermediate' => '1', 'advanced' => '2');
+            $code      = $level_map[strtolower($args['englishLevel'])] ?? $args['englishLevel'];
+            $where[]   = 'o.english_level = %s';
+            $prepare[] = $code;
+        }
+
+        if (!empty($args['source'])) {
+            $source_map = array('1' => 'NTG', '2' => 'NT', '3' => 'NON-EMPLOYEE');
+            $sources    = array_filter(array_map('trim', explode(',', $args['source'])));
+            $sources    = array_map(
+                function ($s) use ($source_map) {
+                    return strtoupper($source_map[$s] ?? $s);
+                },
+                $sources
+            );
+            if (!empty($sources)) {
+                $placeholders = implode(',', array_fill(0, count($sources), '%s'));
+                $where[]      = 'UPPER(o.referrer_source) IN (' . $placeholders . ')';
+                $prepare      = array_merge($prepare, $sources);
+            }
+        }
+
+        if (!empty($args['dateFrom'])) {
+            $where[]   = 'o.referred_date >= %s';
+            $prepare[] = $args['dateFrom'];
+        }
+
+        if (!empty($args['dateTo'])) {
+            $where[]   = 'o.referred_date <= %s';
+            $prepare[] = $args['dateTo'];
+        }
+
+        if (isset($args['statusMonth']) && $args['statusMonth'] !== '' && $args['statusMonth'] !== null) {
+            $where[]   = 'o.status_month = %d';
+            $prepare[] = intval($args['statusMonth']);
+        }
+
+        $where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $select = "SELECT 
+            o.id            AS referral_id,
+            o.NAME          AS referral_name,
+            o.last_name     AS referral_last_name,
+            o.phone_number  AS referral_phone_number,
+            o.email         AS referral_email,
+            o.experiencia   AS referral_experience,
+            o.english_level AS referral_english_level,
+            o.job_preference AS job_preference,
+            referrer_source AS referral_referrer_source,
+            referred_date   AS referral_referred_date,
+            ref.id          AS referrer_id,
+            o.internal_id   AS internal_id,
+            o.referrer_name AS referrer_name,
+            o.incoming_source AS incoming_source,
+            o.referrer_last_name   AS referrer_last_name,
+            o.referrer_email AS referrer_email,
+            o.referrer_phone_number AS referrer_phone_number,
+            ref.email       AS referrer_email_2,
+            ref.newtech_id  AS referrer_newtech_id,
+            st.id           AS status_id,
+            st.NAME         AS status_name,
+            st.parent       AS status_parent,
+            st.category     AS status_category,
+            o.month         AS current_month,
+            o.status_month  AS status_month,
+            o.previous_status_id AS previous_status_id,
+            latest_status_review_by,
+            latest_status_review_date,
+            cd.alphanumeric_code AS referral_code
+        FROM   " . CUSTOM_API_TABLE_REFERRALS . " o
+        LEFT JOIN " . CUSTOM_API_TABLE_REFERRER . " ref
+                ON ref.id = o.referrer_id
+        LEFT JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " st
+                ON st.id = o.status_id
+        LEFT JOIN " . CUSTOM_API_TABLE_REFERRAL_CODE . " cd
+                ON cd.id = o.referral_code";
+
+        $data_sql  = $select . " $where_sql ORDER BY $sort_field $sort_dir LIMIT $perPage OFFSET $offset";
+        $count_sql = "SELECT COUNT(*) AS total FROM " . CUSTOM_API_TABLE_REFERRALS . " o
+            LEFT JOIN " . CUSTOM_API_TABLE_REFERRER . " ref ON ref.id = o.referrer_id
+            LEFT JOIN " . CUSTOM_API_TABLE_REFERRALS_STATUS . " st ON st.id = o.status_id
+            LEFT JOIN " . CUSTOM_API_TABLE_REFERRAL_CODE . " cd ON cd.id = o.referral_code $where_sql";
+
+        $rows = $this->wpdb->get_results($this->wpdb->prepare($data_sql, ...$prepare));
+
+        if ($rows === null) {
+            return array('rows' => array(), 'total' => 0);
+        }
+
+        foreach ($rows as $key => $value) {
+            $rows[$key]->change_log = $this->get_referral_changelog($value->referral_id);
+        }
+
+        $total = $this->wpdb->get_var($this->wpdb->prepare($count_sql, ...$prepare));
+
+        return array(
+            'rows'  => $rows,
+            'total' => (int) $total,
+        );
+    }
+
+    /**
      * Get referral changelog
      * 
      * @param int $referral_id
@@ -594,6 +758,84 @@ class Custom_API_Database {
         return $result
             ? ['success' => true, 'log_id' => $this->wpdb->insert_id]
             : ['success' => false, 'error' => $this->wpdb->last_error];
+    }
+
+    /**
+     * Get hiring logs with server-side pagination, sorting and filtering.
+     *
+     * @param array $args {
+     *     @type int    $page     1-based page number (default 1)
+     *     @type int    $perPage  Rows per page (default 20)
+     *     @type string $sortBy   Sortable column key (default 'sent_at')
+     *     @type string $sortDir  'asc' | 'desc' (default 'desc')
+     *     @type string $global   Global search term
+     *     @type string $client   Filter by client (contains)
+     *     @type string $position Filter by position name (contains)
+     * }
+     * @return array { rows: array, total: int }
+     */
+    public function get_hiring_logs_paginated($args = []) {
+        $sort_whitelist = array(
+            'id'             => 'id',
+            'referral_name'  => 'referral_name',
+            'employee_code'  => 'employee_code',
+            'position_name'  => 'position_name',
+            'client'         => 'client',
+            'work_modality'  => 'work_modality',
+            'work_location'  => 'work_location',
+            'signing_date'   => 'signing_date',
+            'sent_at'        => 'sent_at',
+            'approved_by'    => 'approved_by',
+            'created_at'     => 'created_at',
+        );
+
+        $sort_field = $sort_whitelist[$args['sortBy'] ?? 'sent_at'] ?? 'sent_at';
+        $sort_dir   = strtoupper($args['sortDir'] ?? 'desc');
+        if (!in_array($sort_dir, array('ASC', 'DESC'), true)) {
+            $sort_dir = 'DESC';
+        }
+
+        $page    = max(1, intval($args['page'] ?? 1));
+        $perPage = max(1, min(200, intval($args['perPage'] ?? 20)));
+        $offset  = ($page - 1) * $perPage;
+
+        $where   = array();
+        $prepare = array();
+
+        if (!empty($args['global'])) {
+            $g = '%' . $this->wpdb->esc_like($args['global']) . '%';
+            $where[] = '(referral_name LIKE %s OR employee_code LIKE %s OR position_name LIKE %s '
+                     . 'OR client LIKE %s OR approved_by LIKE %s)';
+            $prepare = array_merge($prepare, array_fill(0, 5, $g));
+        }
+
+        if (!empty($args['client'])) {
+            $where[]   = 'client LIKE %s';
+            $prepare[] = '%' . $this->wpdb->esc_like($args['client']) . '%';
+        }
+
+        if (!empty($args['position'])) {
+            $where[]   = 'position_name LIKE %s';
+            $prepare[] = '%' . $this->wpdb->esc_like($args['position']) . '%';
+        }
+
+        $where_sql  = $where ? 'WHERE ' . (implode(' AND ', $where)) : '';
+        $table      = 'wp_hiring_logs';
+        $data_sql   = "SELECT * FROM $table $where_sql ORDER BY $sort_field $sort_dir LIMIT $perPage OFFSET $offset";
+        $count_sql  = "SELECT COUNT(*) AS total FROM $table $where_sql";
+
+        $rows = $this->wpdb->get_results($this->wpdb->prepare($data_sql, ...$prepare));
+
+        if ($rows === null) {
+            return array('rows' => array(), 'total' => 0);
+        }
+
+        $total = $this->wpdb->get_var($this->wpdb->prepare($count_sql, ...$prepare));
+
+        return array(
+            'rows'  => $rows,
+            'total' => (int) $total,
+        );
     }
 
     /**

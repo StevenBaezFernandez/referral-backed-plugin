@@ -41,6 +41,14 @@ class Custom_API_Referral_Endpoints {
             'show_in_index' => false,
         ));
 
+        // Get referrals (server-side paginated / sorted / filtered)
+        register_rest_route(CUSTOM_API_NAMESPACE, '/referrals', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_referrals_paginated'),
+            'permission_callback' => array('Custom_API_Auth', 'validate_request'),
+            'show_in_index' => false,
+        ));
+
         // Get referrals by employee ID
         register_rest_route(CUSTOM_API_NAMESPACE, '/referrals-by-employee-id/(?P<employee_id>[a-zA-Z0-9-]+)', array(
             'methods' => 'GET',
@@ -255,7 +263,42 @@ class Custom_API_Referral_Endpoints {
         ], 201);
     }
 
+    /**
+     * Get referrals with server-side pagination, sorting and filtering
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_referrals_paginated($request) {
+        $params = $request->get_params();
+        $result = $this->db->get_referrals_paginated($params);
+
+        return new WP_REST_Response(array(
+            'status'       => true,
+            'message'      => 'Success',
+            'data'         => $result['rows'],
+            'totalRecords' => $result['total'],
+            'page'         => isset($params['page']) ? (int) $params['page'] : 1,
+            'perPage'      => isset($params['perPage']) ? (int) $params['perPage'] : 20,
+        ), 200);
+    }
+
     public function get_hiring_logs($request) {
+        $params = $request->get_params();
+
+        // Return paginated result when server-side params are present
+        if (isset($params['page']) || isset($params['perPage']) || isset($params['sortBy']) || !empty($params['global'])) {
+            $result = $this->db->get_hiring_logs_paginated($params);
+            return new WP_REST_Response(array(
+                'status'       => true,
+                'message'      => 'Success',
+                'data'         => $result['rows'],
+                'totalRecords' => $result['total'],
+                'page'         => isset($params['page']) ? (int) $params['page'] : 1,
+                'perPage'      => isset($params['perPage']) ? (int) $params['perPage'] : 20,
+            ), 200);
+        }
+
         $logs = $this->db->get_hiring_logs();
         return new WP_REST_Response(['status' => true, 'data' => $logs], 200);
     }
